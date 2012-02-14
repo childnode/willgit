@@ -27,17 +27,27 @@ branches = `git show-ref --heads`.
   scan(/^\S+ refs\/heads\/(\S+)$/).
   map { |a| a.first }
 
-unknown = heads - branches
+remotebranches = `git show-ref | grep "refs/remotes" | grep -vi "/tags/"`.
+  scan(/^\S+ refs\/remotes\/(\S+\/\S+)$/).
+  map { |a| a.first }
+
+unknown = heads - branches - remotebranches 
 unless unknown.empty?
   $stderr.puts "Unknown branch: #{unknown.first}"
   exit(-1)
 end
 
 branches -= heads
+remotebranches -= heads
 
 heads.each do |h|
   merged = branches.select { |b| `git log #{h}..#{b}` == "" }
   unmerged = branches - merged
+  remotemerged = remotebranches.select { |b| `git log #{h}..#{b}` == "" }
+  unmergedremotes = remotebranches - remotemerged
+
+  merged += remotemerged
+  unmerged += unmergedremotes
 
   puts "merged into #{h}:"
   merged.each { |b| puts "  #{b}" }
